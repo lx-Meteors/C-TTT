@@ -248,7 +248,7 @@ class CompressLLM(torch.nn.Module):
 
         return compress_token_ids, compress_token, end_idx, None, encoder_past_key_values, encoder_mem_size
 
-    def lm_inference(self,inputs,generate_num=1024):
+    def lm_inference(self,inputs,generate_num=512):
         compress_token_ids, compress_token, end_idx, encoder_hidden_states, encoder_past_key_values, encoder_mem_size = self.compress(inputs)
         lm_target_emb = self.decoder.model.embed_tokens(inputs['lm_targets'])
         bsz, seq_len, emb_size = lm_target_emb.size()

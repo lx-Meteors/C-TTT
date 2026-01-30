@@ -91,6 +91,7 @@ def train(rank, args, world_size):
     logging.info(f"[INFO] rank{rank} training examples: {indices[rank::device_count][:4]} ... {indices[rank::device_count][-4:]}| example_nums:{len(train_examples)} | training_steps:{training_steps}")
     
     model = get_model(training_config["model_id"], task_config, rank)
+    model = load_adapter(model, save_path_and_name=args.work_dir + '/output/instruction_adapter.pt', log=False)
     
     # check non-frozen parameters
     if rank == 0:
