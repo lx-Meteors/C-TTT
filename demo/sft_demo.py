@@ -31,7 +31,7 @@ import torch.multiprocessing as mp
 # Launch multi-process eval
 if __name__ == "__main__":
     world_size = torch.cuda.device_count()
-    work_dir = "/mnt/zhaorunsong/lx/SAC-TTT/experiment/full_train_full_test/pwc_vanilla"
+    work_dir = "/mnt/zhaorunsong/lx/SAC-TTT/experiment/full_train_full_test_15x/pwc_vanilla"
     with open(work_dir + "/output/config.json") as f:
         config = json.load(f)
 

@@ -248,7 +248,7 @@ class CompressLLM(torch.nn.Module):
 
         return compress_token_ids, compress_token, end_idx, None, encoder_past_key_values, encoder_mem_size
 
-    def lm_inference(self,inputs,generate_num=512):
+    def lm_inference(self,inputs,generate_num=256):
         compress_token_ids, compress_token, end_idx, encoder_hidden_states, encoder_past_key_values, encoder_mem_size = self.compress(inputs)
         lm_target_emb = self.decoder.model.embed_tokens(inputs['lm_targets'])
         bsz, seq_len, emb_size = lm_target_emb.size()
@@ -438,6 +438,7 @@ def get_model_for_compress(model_id, task_config, rank):
     freeze_encoder(model)
     # only add lora to encoder, don't add lora to model.decoder
     add_compress_lora(model.model, task_config)
+    freeze_encoder(model)
     return model
 
 def get_model(model_id, task_config, rank):
@@ -448,7 +449,7 @@ def get_model(model_id, task_config, rank):
 def save_adapter(model, save_path_and_name='adapter.pt', log=False):
     adapter_name = set()
     for name, param in model.named_parameters():
-        if param.requires_grad:
+        if param.requires_grad or 'lora' in name:
             if log:
                 print("[Save Adapter]", name)
             adapter_name.add(name)

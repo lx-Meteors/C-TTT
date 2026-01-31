@@ -31,7 +31,7 @@ from instruction_dataloader import get_dataset
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--work_dir', type=str, default='../experiment/full_train_full_test/pwc_vanilla', required=False,
+    parser.add_argument('--work_dir', type=str, default='../experiment/full_train_full_test_15x/pwc_vanilla', required=False,
                         help='Directory including the configuration file')
     parser.add_argument('--batch_size', type=int, default=1, required=False, help='total batch size')
     return parser.parse_args()
