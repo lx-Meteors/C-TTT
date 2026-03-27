@@ -2,11 +2,10 @@ import json
 import os
 import sys
 
-from model.modeling import get_model, load_adapter
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from path_config import BASE_PATH
 
+from model.modeling import get_model, load_adapter
 sys.path.append(BASE_PATH)
 import matplotlib.pyplot as plt
 import torch
@@ -53,6 +52,6 @@ if __name__ == "__main__":
     inputs = torch.LongTensor(context_ids).unsqueeze(0).cuda()
     lm_target = torch.LongTensor(question_ids).unsqueeze(0).cuda()
     examples={"input_ids": inputs, "lm_targets": lm_target}
-    generate_text = model.lm_inference(examples)
+    generate_text = model.vanilla_llama_inference(examples)
     print("generate_text: ", tokenizer.decode(generate_text, skip_special_tokens=True))
 
