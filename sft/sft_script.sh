@@ -53,6 +53,12 @@ python ./instruction_trainer.py --work_dir   '../experiment/full_train_full_test
 CUDA_VISIBLE_DEVICES=0,1,2,3 python ./pwc_evaluator.py --work_dir   '../experiment/full_train_full_test_15x/500x_pwc_comp' --batch_size 1
 
 
+# =========================================== icae 15x qusum ==============================================================
+
+# icae_qusum_comp
+python ./instruction_trainer.py --work_dir   '../experiment/full_train_full_test_15x/icae_qusum_comp' --port 14527
+CUDA_VISIBLE_DEVICES=0,1,2,3 python ./pwc_evaluator.py --work_dir   '../experiment/full_train_full_test_15x/500x_qusum_comp' --batch_size 1
+
 
 
 
