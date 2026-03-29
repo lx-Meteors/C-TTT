@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader, Dataset, IterableDataset
 import torch.multiprocessing as mp
 import time
 import json
+import importlib
 from tqdm import tqdm
 from transformers.models.llama.modeling_llama import LlamaForCausalLM
 import argparse
@@ -36,13 +37,43 @@ torch.manual_seed(12345)
 np.random.seed(12345)
 random.seed(12345)
 
+
+def resolve_get_examples(data_config):
+    """
+    根据instruction_dataset_repo路由到不同prepare_data模块。
+    优先规则：
+    1) data_config['prepare_data_module'] 显式指定模块名（如 'qusum_prepare_data'）
+    2) 根据instruction_dataset_repo路径关键词自动匹配
+    3) 默认回退到instruction_prepare_data.get_examples
+    """
+    module_name = data_config.get("prepare_data_module")
+    if module_name:
+        module = importlib.import_module(module_name)
+        return module.get_examples
+
+    repo = str(data_config.get("instruction_dataset_repo", "")).lower()
+    module_map = {
+        "qusum": "qusum_prepare_data",
+        "pwc": "pwc_prepare_data",
+        "multifield": "multifield_prepare_data",
+        "multi_field": "multifield_prepare_data",
+        "mrqa": "instruction_prepare_data",
+    }
+
+    for keyword, target_module in module_map.items():
+        if keyword in repo:
+            module = importlib.import_module(target_module)
+            return module.get_examples
+
+    # fallback
+    return get_examples
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work_dir', type=str, default='compressLLM_test', required=False, help='Directory including the configuration file, for saving model')
     parser.add_argument('--port', type=str, default='14527', required=False, help='port for ddp training')
     return parser.parse_args()
-
-
 
 # Training process
 def train(rank, args, world_size):
@@ -60,8 +91,8 @@ def train(rank, args, world_size):
     task_config = config['sft_task_config']
     config["data_config"]["model_id"] = training_config["model_id"]
 
-    train_examples, eval_examples = get_examples(**config["data_config"])
-
+    routed_get_examples = resolve_get_examples(config["data_config"])
+    train_examples, eval_examples = routed_get_examples(**config["data_config"])
     ###############################预先在准备数据时打乱了#########################################
     # random.seed(rank)
     # random.shuffle(train_examples)
@@ -114,7 +145,7 @@ def train(rank, args, world_size):
         if param.requires_grad:
             print("[Training param]: ", name)
                     
-    for epoch in range(1):
+    for epoch in range(10):
 
         def save():
             if rank!=0:

@@ -24,7 +24,7 @@ from nltk.translate.bleu_score import sentence_bleu
 from torch.nn import DataParallel
 import torch.multiprocessing as mp
 
-from instruction_prepare_data import get_examples
+from multifield_prepare_data import get_examples
 from model.modeling import get_model, save_adapter, load_adapter
 from instruction_dataloader import get_dataset
 
@@ -178,8 +178,10 @@ def evaluate(rank, args, world_size, tokenizer):
 
 
 # Launch multi-process eval
-if __name__ == "__main__":
-    args = parse_args()
+def run_from_dispatcher(args=None):
+    if args is None:
+        args = parse_args()
+
     world_size = torch.cuda.device_count()
 
     with open(args.work_dir + "/output/config.json") as f:
@@ -224,7 +226,7 @@ if __name__ == "__main__":
         #             break
         #         answer += example[("answers")][i] + " "
         ################################################################################
-        answer = example["answers"]
+        answer = example["answers"][0]
         ans_text = answer
         gen_text = tokenizer.decode(gen_text, skip_special_tokens=True)
         print("answer: ", answer)
@@ -272,6 +274,10 @@ if __name__ == "__main__":
 
     with open(args.work_dir + f'/output/instruction_inference_results.json', 'w', encoding='utf-8') as f:
         json.dump(instruction_inference_results, f, ensure_ascii=False, indent=4)
+
+
+if __name__ == "__main__":
+    run_from_dispatcher()
 
 """
 CUDA_VISIBLE_DEVICES=0,1,2,3 python ./instruction_evaluator.py --work_dir '../experiment/debug/quick' --batch_size 1

@@ -1,3 +1,6 @@
+"""
+模型工厂入口 - 根据config动态导入不同的modeling实现
+"""
 import sys
 import os
 
@@ -5,18 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from path_config import BASE_PATH
 
 sys.path.append(BASE_PATH)
-import logging
-import pdb
-import queue
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
-from torch import nn
-from torch.nn import CrossEntropyLoss
-from transformers.models.llama.modeling_llama import LlamaForCausalLM
-from transformers.modeling_outputs import CausalLMOutputWithPast
-import torch.nn.functional as F
-import math
-import transformers
 from model.lora import LinearLoraLayer
 
 
@@ -448,14 +440,87 @@ def get_model_for_compress(model_id, task_config, rank):
     freeze_encoder(model)
     return model
 
+def get_modeling_module(compress_method="default"):
+    """
+    根据compress_method导入相应的modeling模块
+    
+    Args:
+        compress_method: 压缩方法名称 ('default', 'sac', '500x', 'vanilla')
+    
+    Returns:
+        对应的modeling模块
+    """
+    if compress_method == "sac":
+        from model import modeling_sac as module
+    elif compress_method == "500x":
+        from model import modeling_500x as module
+    elif compress_method == "vanilla":
+        from model import modeling_vanilla as module
+    else:  # default
+        from model import modeling_default as module
+    
+    return module
+
+
+def get_model_for_compress(model_id, task_config, rank):
+    """
+    根据task_config中的compress_method创建对应的CompressLLM模型
+    """
+    compress_method = task_config.get("compress_method", "default")
+    
+    # 获取对应的modeling模块
+    modeling_module = get_modeling_module(compress_method)
+    
+    def add_compress_lora(model, task_config):
+        for name, module in model.named_children():
+            if isinstance(module, torch.nn.Linear) and ((name == "q_proj") or (name == "v_proj")):
+                setattr(model, name, LinearLoraLayer(module.in_features, module.out_features, r=128,
+                                                     weight=module.weight.data.clone()))
+            else:
+                # Recursively apply this function to submodules
+                add_compress_lora(module, task_config)
+
+    # 使用对应module的CompressLLM类创建模型
+    model = modeling_module.CompressLLM(
+        model_id,
+        mem_size=task_config["mem_size"],
+        compress_ratio=task_config["compress_ratio"],
+        device_rank=rank,
+        task_config=task_config
+    )
+
+    # freeze all the model except mem tokens and special tokens
+    modeling_module.freeze_encoder(model)
+    # only add lora to encoder, don't add lora to model.decoder
+    add_compress_lora(model.model, task_config)
+    modeling_module.freeze_encoder(model)
+    return model
+
 
 def get_model(model_id, task_config, rank):
+    """获取模型的主入口"""
     if task_config["task_type"] == "Compress":
         return get_model_for_compress(model_id, task_config, rank)
-    raise Exception("Don't exist [{task_type}] task.")
+    raise Exception(f"Don't exist [{task_config.get('task_type')}] task.")
+
+
+def load_adapter(model, save_path_and_name='adapter.pt', log=False):
+    """加载adapter"""
+    adapter_state_dict = torch.load(save_path_and_name, map_location='cpu')
+    adapter_state_dict = {k: v.to(model.device) for k, v in adapter_state_dict.items()}
+    model.load_state_dict(adapter_state_dict, strict=False)
+    return model
+
+
+def load_model_with_adapter(model_id, task_config, rank, save_path_and_name='adapter.pt', log=False):
+    """加载模型并加载adapter"""
+    model = get_model(model_id, task_config, rank)
+    load_adapter(model, save_path_and_name, log)
+    return model
 
 
 def save_adapter(model, save_path_and_name='adapter.pt', log=False):
+    """保存adapter"""
     adapter_name = set()
     for name, param in model.named_parameters():
         if param.requires_grad or 'lora' in name:

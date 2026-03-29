@@ -51,10 +51,11 @@ def get_ids(instruction_dataset_repo_name, examples_list, tokenizer, split):
     for example in tqdm(examples_list, desc="Processing examples"):
 
         if split == "test":
-            answer = example["answers"]
+            answer = example["answers"][0]
 
-            context = tokenizer(example["input"], add_special_tokens=False)["input_ids"]
-            prompt = tokenizer(example["context"], add_special_tokens=False)["input_ids"]
+            context = tokenizer(example["context"], add_special_tokens=False)["input_ids"]
+            context = context[:23500]
+            prompt = tokenizer(example["input"], add_special_tokens=False)["input_ids"]
             answer = tokenizer(answer, add_special_tokens=False)["input_ids"]
 
             context_ids = [tokenizer.bos_token_id] + tokenizer("### Context:\n", add_special_tokens=False)["input_ids"] + context
@@ -70,9 +71,8 @@ def get_ids(instruction_dataset_repo_name, examples_list, tokenizer, split):
             examples.append({"input_ids":inputs,"lm_targets":lm_target})
         else:
 
-            context_temp = tokenizer(example["input"], add_special_tokens=False)["input_ids"]
-
-            context_temp = context_temp[:2040]  # 截断输入文本，确保总长度不超过模型的最大输入长度
+            context_temp = tokenizer(example["context"], add_special_tokens=False)["input_ids"]
+            context_temp = context_temp[:2048]  # 截断输入文本，确保总长度不超过模型的最大输入长度
 
             context = context_temp[:len(context_temp) // 2]
             answer = context_temp[len(context_temp) // 2:]
